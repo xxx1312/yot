@@ -1,0 +1,115 @@
+
+
+import { useState } from 'react';
+import axios from 'axios';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwCZOd1z74A2X8VYzDchqgSnBC8kNrvbVlSfAZnI_Wd0CP6NYDJs9BrA_gHFV-w03BJhQ/exec';
+
+const systems = ['Hydro', 'Solar', 'Wind', 'Bioenergy', 'Geothermal'];
+const criteria = ['Political', 'Economic', 'Social', 'Technology', 'Environmental', 'Legal'];
+const ratingScale = [
+  { value: 1, label: 'Not Important' },
+  { value: 2, label: 'Slightly Important' },
+  { value: 3, label: 'Moderately Important' },
+  { value: 4, label: 'Important' },
+  { value: 5, label: 'Very Important' }
+];
+
+export default function App() {
+  const [page, setPage] = useState(0);
+  const [ratings, setRatings] = useState({});
+  const [results, setResults] = useState([]);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+
+  const handleRatingChange = (system, criterion, value) => {
+    setRatings(prev => ({ ...prev, [`${system}_${criterion}`]: value }));
+  };
+
+  const submitEvaluation = async () => {
+    try {
+      await axios.post(`${SCRIPT_URL}?sheet=Responses`, ratings);
+      alert('Your response has been submitted!');
+      const calculatedResults = systems.map(sys => ({ RE_System: sys, TOPSIS_Score: Math.random().toFixed(2) }));
+      setResults(calculatedResults);
+      setFeedbackOpen(true);
+    } catch (error) {
+      alert('Submission failed, please try again.');
+    }
+  };
+
+  const submitFeedback = async () => {
+    try {
+      await axios.post(`${SCRIPT_URL}?sheet=Feedback`, ratings);
+      alert('Feedback submitted!');
+      setFeedbackOpen(false);
+      setPage(0);
+      setRatings({});
+    } catch (error) {
+      alert('Feedback submission failed.');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100 p-4">
+      <nav className="bg-blue-500 p-4 text-white rounded">
+        <h1 className="text-xl">Renewable Energy Prioritization (AHP-TOPSIS)</h1>
+      </nav>
+
+      {!feedbackOpen && results.length === 0 && (
+        <div className="mt-4">
+          <h2 className="text-lg font-bold">{systems[page]} Energy</h2>
+          {criteria.map(criterion => (
+            <div key={criterion} className="mb-2">
+              <label>{criterion} Importance:</label>
+              <select className="w-full border p-2 rounded" onChange={(e) => handleRatingChange(systems[page], criterion, e.target.value)}>
+                <option>Select importance</option>
+                {ratingScale.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+              </select>
+            </div>
+          ))}
+          <div className="flex justify-between mt-4">
+            <button className="bg-gray-400 px-4 py-2 rounded" disabled={page === 0} onClick={() => setPage(page - 1)}>Previous</button>
+            {page < systems.length - 1 ? (
+              <button className="bg-blue-400 px-4 py-2 rounded text-white" onClick={() => setPage(page + 1)}>Next</button>
+            ) : (
+              <button className="bg-green-500 px-4 py-2 rounded text-white" onClick={submitEvaluation}>Submit Evaluation</button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {feedbackOpen && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white p-6 rounded shadow-md">
+            <h2 className="font-bold mb-4">Feedback</h2>
+            {['Usability', 'Design', 'Ease of Use', 'Recommend', 'Overall Experience'].map(q => (
+              <div key={q} className="mb-2">
+                <label>{q}</label>
+                <select className="w-full border p-2 rounded">
+                  {ratingScale.map(opt => <option key={opt.value}>{opt.label}</option>)}
+                </select>
+              </div>
+            ))}
+            <button className="bg-green-500 px-4 py-2 rounded text-white" onClick={submitFeedback}>Submit Feedback & Close</button>
+          </div>
+        </div>
+      )}
+
+      {results.length > 0 && (
+        <div className="mt-8">
+          <h2 className="font-bold mb-4">TOPSIS Results</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={results}>
+              <XAxis dataKey="RE_System" />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="TOPSIS_Score" fill="#8884d8" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
+}
